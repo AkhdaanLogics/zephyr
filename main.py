@@ -5,6 +5,9 @@ import logging
 from dotenv import load_dotenv
 import os
 import random
+import asyncio
+import yt_dlp
+
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -19,7 +22,9 @@ class MyBot(commands.Bot):
         super().__init__(command_prefix='zep ', intents=intents, help_command=None)
 
     async def setup_hook(self):
-        await self.tree.sync(guild=None)
+        # await self.tree.sync(guild=None)
+        GUILD_ID=1346560094325968957
+        await self.tree.sync(guild=discord.Object(id=GUILD_ID))
 
 bot = MyBot()
 
@@ -64,6 +69,11 @@ async def help_command(interaction: discord.Interaction):
         "/info - `Menampilkan informasi bot`\n"
         "/polling - `Membuat polling dengan reaksi`\n"
         "/embed - `Membuat pesan embed`\n"
+        "/play - `Memainkan musik dari YouTube`\n"
+        "/pause - `Pause musik yang sedang diputar`\n"
+        "/resume - `Melanjutkan musik yang dipause`\n"
+        "/stop - `Menghentikan musik yang sedang diputar`\n"
+        "/leave - `Bot keluar dari voice channel`\n"
         "/level - `Menampilkan level user`\n\n"
         "**—— Perintah Moderasi ——**\n\n"
         "/kick - `Mengeluarkan user dari server`\n"
@@ -168,5 +178,74 @@ async def unban(interaction: discord.Interaction, user_id: str):
         await interaction.response.send_message(f"{user.name} telah di-unban dari server.")
     except discord.NotFound:
         await interaction.response.send_message("Pengguna tidak ditemukan dalam daftar banned.", ephemeral=True)
+
+@bot.tree.command(name="play", description="Memainkan musik dari YouTube")
+@app_commands.describe(query="Judul lagu atau URL YouTube")
+async def play(interaction: discord.Interaction, query: str):
+    await interaction.response.defer()
+    voice_channel = interaction.user.voice.channel if interaction.user.voice else None
+    if not voice_channel:
+        await interaction.followup.send("Kamu harus berada di voice channel dulu.", ephemeral=True)
+        return
+    if interaction.guild.voice_client is None:
+        vc = await voice_channel.connect()
+    else:
+        vc = interaction.guild.voice_client
+    ytdl_opts = {
+        'format': 'bestaudio/best',
+        'noplaylist': True,
+        'quiet': True,
+        'default_search': 'auto',
+        'source_address': '0.0.0.0',
+    }
+    try:
+        with yt_dlp.YoutubeDL(ytdl_opts) as ydl:
+            info = ydl.extract_info(query, download=False)
+            url = info['url']
+            title = info.get('title', 'Unknown Title')
+        vc.stop()
+        vc.play(discord.FFmpegPCMAudio(
+            url,
+            before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
+        ))
+        await interaction.followup.send(f"Sekarang memutar: **{title}**")
+    except Exception as e:
+        await interaction.followup.send(f"Gagal memutar musik: {str(e)}", ephemeral=True)
+
+@bot.tree.command(name="pause", description="Pause lagu yang sedang diputar")
+async def pause(interaction: discord.Interaction):
+    vc = interaction.guild.voice_client
+    if vc and vc.is_playing():
+        vc.pause()
+        await interaction.response.send_message("Musik dipause.")
+    else:
+        await interaction.response.send_message("Tidak ada musik yang sedang diputar.", ephemeral=True)
+
+@bot.tree.command(name="resume", description="Melanjutkan lagu yang dipause")
+async def resume(interaction: discord.Interaction):
+    vc = interaction.guild.voice_client
+    if vc and vc.is_paused():
+        vc.resume()
+        await interaction.response.send_message("Musik dilanjutkan.")
+    else:
+        await interaction.response.send_message("Tidak ada musik yang dipause.", ephemeral=True)
+
+@bot.tree.command(name="stop", description="Menghentikan musik yang sedang diputar")
+async def stop(interaction: discord.Interaction):
+    vc = interaction.guild.voice_client
+    if vc and vc.is_playing():
+        vc.stop()
+        await interaction.response.send_message("Musik dihentikan.")
+    else:
+        await interaction.response.send_message("Tidak ada musik yang sedang diputar.", ephemeral=True)
+
+@bot.tree.command(name="leave", description="Bot keluar dari voice channel")
+async def leave(interaction: discord.Interaction):
+    vc = interaction.guild.voice_client
+    if vc and vc.is_connected():
+        await vc.disconnect()
+        await interaction.response.send_message("Bot keluar dari voice channel.")
+    else:
+        await interaction.response.send_message("Bot tidak sedang berada di voice channel.", ephemeral=True)
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
