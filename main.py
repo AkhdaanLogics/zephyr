@@ -19,7 +19,7 @@ class MyBot(commands.Bot):
         super().__init__(command_prefix='zep ', intents=intents, help_command=None)
 
     async def setup_hook(self):
-        await self.tree.sync()
+        await self.tree.sync(guild=None)
 
 bot = MyBot()
 
@@ -62,15 +62,16 @@ async def help_command(interaction: discord.Interaction):
         "/hello - `Menyapa pengguna`\n"
         "/help - `Menampilkan daftar perintah`\n"
         "/info - `Menampilkan informasi bot`\n"
-        "/khodam - `Menampilkan khodam`\n"
         "/polling - `Membuat polling dengan reaksi`\n"
-        "/anonymous - `Kirim pesan anonim (hanya terlihat oleh pengirim)`\n"
         "/embed - `Membuat pesan embed`\n"
         "/level - `Menampilkan level user`\n\n"
         "**—— Perintah Moderasi ——**\n\n"
         "/kick - `Mengeluarkan user dari server`\n"
         "/ban - `Banned user dari server`\n"
-        "/unban - `Unban user dari server`"
+        "/unban - `Unban user dari server`\n\n"
+        "—— Permainaan ——\n\n"
+        "/khodam - `Menampilkan khodam`\n"
+        "/anonymous - `Kirim pesan anonim (hanya terlihat oleh pengirim)`\n"
     )
     await interaction.response.send_message(help_message, ephemeral=True)
 
