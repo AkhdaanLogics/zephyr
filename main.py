@@ -7,7 +7,8 @@ import os
 import random
 import asyncio
 import yt_dlp
-
+import requests
+from typing import Optional
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -74,12 +75,13 @@ async def help_command(interaction: discord.Interaction):
         "/resume - `Melanjutkan musik yang dipause`\n"
         "/stop - `Menghentikan musik yang sedang diputar`\n"
         "/leave - `Bot keluar dari voice channel`\n"
+        "/ask - `Tanya apapun melalui Zep dengan AI`\n"
         "/level - `Menampilkan level user`\n\n"
         "**—— Perintah Moderasi ——**\n\n"
         "/kick - `Mengeluarkan user dari server`\n"
         "/ban - `Banned user dari server`\n"
         "/unban - `Unban user dari server`\n\n"
-        "—— Permainaan ——\n\n"
+        "**—— Permainaan ——**\n\n"
         "/khodam - `Menampilkan khodam`\n"
         "/anonymous - `Kirim pesan anonim (hanya terlihat oleh pengirim)`\n"
     )
@@ -247,5 +249,35 @@ async def leave(interaction: discord.Interaction):
         await interaction.response.send_message("Bot keluar dari voice channel.")
     else:
         await interaction.response.send_message("Bot tidak sedang berada di voice channel.", ephemeral=True)
+
+def tanya_ai(prompt: str) -> Optional[str]:
+    import os
+    import requests
+
+    url = "https://api.cohere.ai/v1/chat"
+    headers = {
+        "Authorization": f"Bearer {os.getenv('COHERE_API_KEY')}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "message": prompt,
+        "chat_history": []
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("text", "Maaf, saya tidak bisa menjawab sekarang.")
+    except Exception as e:
+        print(f"[COHERE AI ERROR] {e}")
+        return "Terjadi kesalahan saat menghubungi Cohere AI."
+
+@bot.tree.command(name="ask", description="Tanyakan sesuatu ke AI Zep")
+async def ask(interaction: discord.Interaction, pertanyaan: str):
+    await interaction.response.defer(thinking=True)
+    jawaban = tanya_ai(pertanyaan)
+    await interaction.followup.send(f"**Pertanyaan:** {pertanyaan}\n**Jawaban AI:** `{jawaban}`")
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
