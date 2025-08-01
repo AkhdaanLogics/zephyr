@@ -36,6 +36,7 @@ bot = MyBot()
 async def on_ready():
     activity = discord.Activity(type=discord.ActivityType.listening, name="Akhdaan The Great | /help")
     await bot.change_presence(status=discord.Status.online, activity=activity)
+    bot.loop.create_task(party_reminder_checker())
     print(f"Masuk sebagai {bot.user.name} - {bot.user.id}")
 
 
@@ -87,17 +88,18 @@ async def help_command(interaction: discord.Interaction):
         "/leave - `Bot keluar dari voice channel`\n"
         "/addqueue - `Menambahkan lagu ke antrian **Under Development**`\n"\
         "/queue - `Melihat daftar lagu dalam antrian **Under Development**`\n"
-        "/ask - `Tanya apapun melalui Zep dengan AI`\n"
-        "/rename - `Mengubah nama panggilan (nickname) anggota di server`\n\n"
+        "/ask - `Tanya apapun melalui Zep dengan AI`\n\n"
         "**—— Perintah Moderasi ——**\n\n"
         "/kick - `Mengeluarkan user dari server`\n"
         "/ban - `Banned user dari server`\n"
-        "/unban - `Unban user dari server`\n\n"
+        "/unban - `Unban user dari server`\n"
+        "/rename - `Mengubah nama panggilan (nickname) anggota di server`\n\n"
         "**—— Permainaan ——**\n\n"
         "/khodam - `Menampilkan khodam`\n"
         "/anonymous - `Kirim pesan anonim (hanya terlihat oleh pengirim)`\n"
-        "/create-party - `Membuat party untuk bermain game **Under Development**`\n"
-        "/join-party - `Bergabung ke party sesuai id **Under Development**`\n"
+        "/create-party - `Membuat party untuk bermain game`\n"
+        "/join-party - `Bergabung ke party sesuai id`\n"
+        "/party - `Menampilkan daftar party aktif`\n"
         "/level - `Menampilkan level user`\n\n"
     )
     await interaction.response.send_message(help_message, ephemeral=True)
@@ -381,6 +383,33 @@ async def rename(interaction: discord.Interaction, member: discord.Member, new_n
 
 parties = {}
 
+async def party_reminder_checker():
+    await bot.wait_until_ready()
+    while not bot.is_closed():
+        now = datetime.datetime.now()
+        for party_id, party in list(parties.items()):
+            try:
+                start_time = datetime.datetime.strptime(party["start_time"], "%Y-%m-%d %H:%M")
+                reminder_time = start_time - datetime.timedelta(minutes=15)
+                if "reminder_sent" not in party and now >= reminder_time:
+                    mentions = " ".join([f"<@{member_id}>" for member_id in party["members"].keys()])
+                    if mentions:
+                        await party["message"].channel.send(
+                            f"⏰ **Reminder Party {party_id}**\n"
+                            f"15 menit lagi party akan dimulai!\n"
+                            f"Peserta: {mentions}"
+                        )
+                    party["reminder_sent"] = True
+                if now >= start_time + datetime.timedelta(hours=1):
+                    await party["message"].channel.send(
+                        f"❌ **Party {party_id}** telah berakhir dan dihapus dari daftar."
+                    )
+                    del parties[party_id]
+            except Exception as e:
+                print(f"[Reminder Error] {e}")
+        await asyncio.sleep(60)
+
+
 def generate_party_id():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
 
@@ -450,5 +479,38 @@ async def join_party(interaction: discord.Interaction, party_id: str, job: str):
     embed.set_footer(text="Gunakan /join-party <id> <job> untuk bergabung")
     await party["message"].edit(embed=embed)
     await interaction.response.send_message(f"Kamu berhasil bergabung ke Party {party_id} sebagai {job}!", ephemeral=True)
+
+@bot.tree.command(name="party", description="Menampilkan semua party aktif")
+async def list_party(interaction: discord.Interaction):
+    if not parties:
+        await interaction.response.send_message("Tidak ada party aktif saat ini.", ephemeral=True)
+        return
+
+    embed = discord.Embed(title="Daftar Party Aktif", color=discord.Color.blurple())
+
+    for party_id, party in parties.items():
+        updated_jobs = ""
+        for j in party["jobs"]:
+            member = [m for m, jb in party["members"].items() if jb == j]
+            if member:
+                user = await bot.fetch_user(member[0])
+                updated_jobs += f"{j}: {user.mention}\n"
+            else:
+                updated_jobs += f"{j}: ❌ Kosong\n"
+
+        creator_user = await bot.fetch_user(party["creator"])
+        embed.add_field(
+            name=f"Party {party_id}",
+            value=(
+                f"**Party Leader:** {creator_user.mention}\n"
+                f"**Anggota:** {len(party['members'])}/{party['max_members']}\n"
+                f"**Jobs:**\n{updated_jobs}"
+                f"**Mulai:** {party['start_time']}\n"
+                f"Gunakan `/join-party {party_id} <job>` untuk bergabung"
+            ),
+            inline=False
+        )
+
+    await interaction.response.send_message(embed=embed)
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
