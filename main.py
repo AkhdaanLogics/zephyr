@@ -440,9 +440,9 @@ async def join_party(interaction: discord.Interaction, party_id: str, job: str):
         member = [m for m, jb in party["members"].items() if jb == j]
         if member:
             user_name = await bot.fetch_user(member[0])
-            updated_jobs += f"{j}: {user_name.name}\n"
+            updated_jobs += f"{j}: {user_name.mention}\n"
         else:
-            updated_jobs += f"{j}: Kosong\n"
+            updated_jobs += f"{j}: ❌ Kosong\n"
     embed = discord.Embed(title=f"Party {party_id}", color=discord.Color.green())
     embed.add_field(name="Jumlah Anggota", value=f"{len(party['members'])}/{party['max_members']}", inline=False)
     embed.add_field(name="Job Slots", value=updated_jobs, inline=False)
