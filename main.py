@@ -26,9 +26,9 @@ class MyBot(commands.Bot):
         super().__init__(command_prefix='zep ', intents=intents, help_command=None)
 
     async def setup_hook(self):
-        # await self.tree.sync(guild=None)
-        GUILD_ID=1346560094325968957
-        await self.tree.sync(guild=discord.Object(id=GUILD_ID))
+        await self.tree.sync(guild=None)
+        # GUILD_ID=1346560094325968957
+        # await self.tree.sync(guild=discord.Object(id=GUILD_ID))
 
 bot = MyBot()
 
