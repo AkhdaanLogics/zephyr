@@ -23,9 +23,9 @@ class MyBot(commands.Bot):
         super().__init__(command_prefix='zep ', intents=intents, help_command=None)
 
     async def setup_hook(self):
-        # await self.tree.sync(guild=None)
-        GUILD_ID=1346560094325968957
-        await self.tree.sync(guild=discord.Object(id=GUILD_ID))
+        await self.tree.sync(guild=None)
+        # GUILD_ID=1346560094325968957
+        # await self.tree.sync(guild=discord.Object(id=GUILD_ID))
 
 bot = MyBot()
 
@@ -95,7 +95,7 @@ async def info(interaction: discord.Interaction):
         f"**Jumlah Server:** `{len(bot.guilds)}`\n"
         f"**Jumlah Anggota:** `{sum(g.member_count for g in bot.guilds)}`\n"
         f"**Prefix :** `/`\n"
-        f"**Versi:** `1.0.1`\n"
+        f"**Versi:** `1.0.2`\n"
         f"**Pengembang:** `Akhdaan The Great`\n"
     )
     await interaction.response.send_message(info_message)
@@ -251,9 +251,6 @@ async def leave(interaction: discord.Interaction):
         await interaction.response.send_message("Bot tidak sedang berada di voice channel.", ephemeral=True)
 
 def tanya_ai(prompt: str) -> Optional[str]:
-    import os
-    import requests
-
     url = "https://api.cohere.ai/v1/chat"
     headers = {
         "Authorization": f"Bearer {os.getenv('COHERE_API_KEY')}",
@@ -273,7 +270,7 @@ def tanya_ai(prompt: str) -> Optional[str]:
     except Exception as e:
         print(f"[COHERE AI ERROR] {e}")
         return "Terjadi kesalahan saat menghubungi Cohere AI."
-
+    
 @bot.tree.command(name="ask", description="Tanyakan sesuatu ke AI Zep")
 async def ask(interaction: discord.Interaction, pertanyaan: str):
     await interaction.response.defer(thinking=True)
