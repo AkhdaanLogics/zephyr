@@ -63,23 +63,16 @@ def save_config():
 
 @bot.event
 async def on_ready():
-    activity = discord.Activity(type=discord.ActivityType.listening, name="Akhdaan The Great | /help")
+    activity = discord.Activity(type=discord.ActivityType.listening, name="Sir Akhdaan | /help")
     await bot.change_presence(status=discord.Status.online, activity=activity)
     bot.loop.create_task(party_reminder_checker())
     print(f"Masuk sebagai {bot.user.name} - {bot.user.id}")
-
 
 badwords = [
     'anjing', 'babi', 'kontol', 'memek', 'monyet', 'goblok',
     'tolol', 'bangsat', 'asu', 'jancok', 'sialan', 'kampret',
     'tai', 'ngentot', 'setan', 'bego', 'brengsek', 'bangke',
     'shit', 'fuck', 'damn'
-]
-
-khodam_list = [
-    'PESUT MAHAKAM', 'UGET UGET BOYOLALI', 'AKBAR KESEIMBANGAN',
-    'SUKI SERIKAT', 'EKO MAGELANGAN', 'UJANG MAHATHIR', 'BONDAN ENCENG GONDOK',
-    'ASEP ASAM MANIS', 'NABIL ASPAL KERAS'
 ]
 
 @bot.event
@@ -129,10 +122,6 @@ async def on_message(message):
     save_levels()
     await bot.process_commands(message)
 
-@bot.tree.command(name="hello", description="Menyapa pengguna")
-async def hello(interaction: discord.Interaction):
-    await interaction.response.send_message(f'Halo {interaction.user.mention}!\nGunakan `/help` untuk daftar perintah.')
-
 @bot.tree.command(name="help", description="Menampilkan daftar perintah")
 async def help_command(interaction: discord.Interaction):
     embed = discord.Embed(
@@ -153,7 +142,6 @@ async def help_command(interaction: discord.Interaction):
         pilihan = select.values[0]
         if pilihan == "Perintah Dasar":
             desc = (
-                "/hello - `Menyapa pengguna`\n"
                 "/help - `Menampilkan daftar perintah`\n"
                 "/info - `Menampilkan informasi bot`\n"
                 "/polling - `Membuat polling dengan reaksi`\n"
@@ -174,12 +162,10 @@ async def help_command(interaction: discord.Interaction):
                 "/unban - `Unban user dari server`\n"
                 "/rename - `Mengubah nickname anggota`\n"
                 "/clear - `Menghapus sejumlah pesan dari channel`\n"
-                "/set-level-channel - `Mengatur channel untuk notifikasi level`\n"
-                "/enable-leveling - `Aktifkan atau matikan sistem leveling`\n"
+                "/set-leveling - `Aktifkan atau matikan sistem leveling`\n"
             )
         else:
             desc = (
-                "/khodam - `Menampilkan khodam`\n"
                 "/anonymous - `Kirim pesan anonim`\n"
                 "/create-party - `Membuat party untuk bermain game`\n"
                 "/join-party - `Bergabung ke party sesuai id`\n"
@@ -208,28 +194,14 @@ async def info(interaction: discord.Interaction):
             f"**Jumlah Server:** `{len(bot.guilds)}`\n"
             f"**Jumlah Anggota:** `{sum(g.member_count for g in bot.guilds)}`\n"
             f"**Prefix:** `/`\n"
-            f"**Versi:** `1.0.3`\n"
+            f"**Versi:** `1.0.4`\n"
             f"**Pengembang:** `Akhdaan The Great`\n"
+            f"**Update Terbaru 25 Aug 2025**\n"
+            f"- `Mengubah /enable-leveling dan /set-level-channel menjadi 1 perintah /set-leveling`\n- `Menambahkan fitur welcome & goodbye message`\n `- Mengubah antrian musik dari add`"
         ),
         color=discord.Color.gold()
     )
     await interaction.response.send_message(embed=info_message)
-
-@bot.tree.command(name="khodam", description="Menampilkan khodam secara acak")
-@app_commands.describe(member="(Opsional) Pilih user lain")
-async def khodam(interaction: discord.Interaction, member: discord.Member = None):
-    if member is None:
-        member = interaction.user
-    elif member == interaction.guild.owner:
-        await interaction.response.send_message("Pemilik server terlalu hebat untuk memiliki khodam biasa. Mereka adalah khodam itu sendiri!")
-        return
-    khodam_choice = random.choice(khodam_list)
-    embed = discord.Embed(
-        title=f"Khodam {member.name}",
-        description=f"**{khodam_choice}** adalah khodam yang cocok untuk {member.name}.",
-        color=discord.Color.gold()
-    )
-    await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="polling", description="Membuat polling dengan reaksi 👍 👎")
 @app_commands.describe(pertanyaan="Pertanyaan untuk polling")
@@ -285,33 +257,59 @@ async def level(interaction: discord.Interaction, user: discord.User = None):
         ephemeral=False
     )
 
-@bot.tree.command(name="set-level-channel", description="Set channel khusus untuk notifikasi level")
-@app_commands.describe(channel="Channel yang ingin dijadikan channel leveling")
+@bot.tree.command(name="set-leveling", description="Aktifkan atau matikan sistem leveling di server ini")
+@app_commands.describe(
+    status="Pilih apakah leveling diaktifkan atau dimatikan",
+    channel="Channel untuk notifikasi leveling (opsional, wajib jika pertama kali ON)"
+)
 @app_commands.checks.has_permissions(administrator=True)
-async def set_level_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+async def set_leveling(
+    interaction: discord.Interaction,
+    status: str,
+    channel: discord.TextChannel = None
+):
     guild_id = str(interaction.guild.id)
 
     if guild_id not in server_config:
-        server_config[guild_id] = {"leveling_enabled": True, "level_channel": None}
+        server_config[guild_id] = {"leveling_enabled": False, "level_channel": None}
 
-    server_config[guild_id]["level_channel"] = str(channel.id)
-    save_config()
-    await interaction.response.send_message(
-        f"✅ Channel leveling diatur ke {channel.mention}", ephemeral=True
-    )
+    if status.lower() in ["on", "aktif", "enable"]:
+        if server_config[guild_id]["level_channel"] is None and channel is None:
+            await interaction.response.send_message(
+                "⚠️ Kamu harus memilih channel untuk mengaktifkan leveling!",
+                ephemeral=True
+            )
+            return
+        if channel:
+            server_config[guild_id]["level_channel"] = str(channel.id)
+        if server_config[guild_id]["level_channel"] is None:
+            await interaction.response.send_message(
+                "❌ Gagal mengaktifkan leveling, belum ada channel yang diatur.",
+                ephemeral=True
+            )
+            return
 
-@bot.tree.command(name="enable-leveling", description="Aktifkan atau matikan sistem leveling di server ini")
-@app_commands.checks.has_permissions(administrator=True)
-async def toggle_leveling(interaction: discord.Interaction):
-    guild_id = str(interaction.guild.id)
-
-    if guild_id not in server_config:
-        server_config[guild_id] = {"leveling_enabled": True, "level_channel": None}
-
-    server_config[guild_id]["leveling_enabled"] = not server_config[guild_id]["leveling_enabled"]
-    state = "✅ AKTIF" if server_config[guild_id]["leveling_enabled"] else "⛔ NONAKTIF"
-    save_config()
-    await interaction.response.send_message(f"Leveling sekarang: **{state}**", ephemeral=True)
+        server_config[guild_id]["leveling_enabled"] = True
+        save_config()
+        channel_mention = f"<#{server_config[guild_id]['level_channel']}>"
+        await interaction.response.send_message(
+            f"✅ Leveling telah **AKTIF** dan notifikasi akan dikirim ke {channel_mention}",
+            ephemeral=True
+        )
+    elif status.lower() in ["off", "nonaktif", "disable"]:
+        server_config[guild_id]["leveling_enabled"] = False
+        server_config[guild_id]["level_channel"] = None 
+        save_config()
+        await interaction.response.send_message(
+            "⛔ Leveling telah **DINONAKTIFKAN**. Channel notifikasi juga dihapus, "
+            "kamu perlu mengatur channel baru saat mengaktifkan lagi.",
+            ephemeral=True
+        )
+    else:
+        await interaction.response.send_message(
+            "❌ Pilihan tidak valid! Gunakan `on/off`.",
+            ephemeral=True
+        )
 
 @bot.tree.command(name="leaderboard", description="Melihat leaderboard level server ini")
 @app_commands.describe(limit="Jumlah user yang ingin ditampilkan (default 10)")
@@ -376,6 +374,19 @@ async def unban(interaction: discord.Interaction, user_id: str):
     except discord.NotFound:
         await interaction.response.send_message("Pengguna tidak ditemukan dalam daftar banned.", ephemeral=True)
 
+queues = {}
+
+def play_next(guild_id, vc):
+    if guild_id in queues and queues[guild_id]:
+        url, title = queues[guild_id].pop(0)
+        vc.play(
+            discord.FFmpegPCMAudio(
+                url,
+                before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
+            ),
+            after=lambda e: play_next(guild_id, vc)
+        )
+
 @bot.tree.command(name="play", description="Memainkan musik dari YouTube")
 @app_commands.describe(query="Judul lagu atau URL YouTube")
 async def play(interaction: discord.Interaction, query: str):
@@ -384,50 +395,7 @@ async def play(interaction: discord.Interaction, query: str):
     if not voice_channel:
         await interaction.followup.send("Kamu harus berada di voice channel dulu.", ephemeral=True)
         return
-    if interaction.guild.voice_client is None:
-        vc = await voice_channel.connect()
-    else:
-        vc = interaction.guild.voice_client
-    ytdl_opts = {
-        'format': 'bestaudio/best',
-        'noplaylist': True,
-        'quiet': True,
-        'default_search': 'auto',
-        'source_address': '0.0.0.0',
-    }
-    try:
-        with yt_dlp.YoutubeDL(ytdl_opts) as ydl:
-            info = ydl.extract_info(query, download=False)
-            url = info['url']
-            title = info.get('title', 'Unknown Title')
-        vc.stop()
-        vc.play(discord.FFmpegPCMAudio(
-            url,
-            before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
-        ))
-        await interaction.followup.send(f"Sekarang memutar: **{title}**")
-    except Exception as e:
-        await interaction.followup.send(f"Gagal memutar musik: {str(e)}", ephemeral=True)
 
-queues = {}
-
-def play_next(guild_id, vc):
-    if queues[guild_id]:
-        url, title = queues[guild_id].pop(0)
-        vc.play(
-            discord.FFmpegPCMAudio(url, before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'),
-            after=lambda e: play_next(guild_id, vc)
-        )
-
-@bot.tree.command(name="add-queue", description="Menambahkan lagu ke antrian")
-@app_commands.describe(query="Judul lagu atau URL YouTube")
-async def add_queue(interaction: discord.Interaction, query: str):
-    await interaction.response.defer()
-    voice_channel = interaction.user.voice.channel if interaction.user.voice else None
-    if not voice_channel:
-        await interaction.followup.send("Kamu harus berada di voice channel dulu.", ephemeral=True)
-        return
-    
     if interaction.guild.voice_client is None:
         vc = await voice_channel.connect()
     else:
@@ -439,6 +407,7 @@ async def add_queue(interaction: discord.Interaction, query: str):
         'quiet': True,
         'default_search': 'auto',
         'source_address': '0.0.0.0',
+        'cookiefile': 'cookies.txt',
     }
     try:
         with yt_dlp.YoutubeDL(ytdl_opts) as ydl:
@@ -449,15 +418,19 @@ async def add_queue(interaction: discord.Interaction, query: str):
             queues[interaction.guild.id] = []
         if not vc.is_playing():
             vc.play(
-                discord.FFmpegPCMAudio(url, before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'),
+                discord.FFmpegPCMAudio(
+                    url,
+                    before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
+                ),
                 after=lambda e: play_next(interaction.guild.id, vc)
             )
-            await interaction.followup.send(f"Sekarang memutar: **{title}**")
+            await interaction.followup.send(f"🎶 Sekarang memutar: **{title}**")
         else:
             queues[interaction.guild.id].append((url, title))
-            await interaction.followup.send(f"Lagu **{title}** telah ditambahkan ke antrian.")
+            await interaction.followup.send(f"➕ Lagu **{title}** telah ditambahkan ke antrian.")
+
     except Exception as e:
-        await interaction.followup.send(f"Gagal menambahkan lagu ke antrian: {str(e)}", ephemeral=True)
+        await interaction.followup.send(f"❌ Gagal memutar musik: {str(e)}", ephemeral=True)
 
 @bot.tree.command(name="queue", description="Melihat daftar lagu dalam antrian")
 async def queue(interaction: discord.Interaction):
@@ -739,6 +712,92 @@ async def list_party(interaction: discord.Interaction):
             inline=False
         )
     await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="set-welcome", description="Atur welcome message dan channel")
+@app_commands.describe(
+    channel="Channel untuk welcome message",
+    message="Teks custom welcome. Gunakan {user}, {mention}, {server}"
+)
+@app_commands.checks.has_permissions(administrator=True)
+async def set_welcome(interaction: discord.Interaction, channel: discord.TextChannel, message: str):
+    guild_id = str(interaction.guild.id)
+    if guild_id not in server_config:
+        server_config[guild_id] = {}
+    server_config[guild_id]["welcome_channel"] = str(channel.id)
+    server_config[guild_id]["welcome_message"] = message
+    save_config()
+    await interaction.response.send_message(
+        f"✅ Welcome message diatur ke {channel.mention}\nPesan: {message}",
+        ephemeral=True
+    )
+
+@bot.event
+async def on_member_join(member):
+    guild_id = str(member.guild.id)
+
+    if guild_id not in server_config or "welcome_channel" not in server_config[guild_id]:
+        return
+
+    channel_id = int(server_config[guild_id]["welcome_channel"])
+    channel = member.guild.get_channel(channel_id)
+    message = server_config[guild_id].get("welcome_message", "Selamat datang {mention} di {server}!")
+    rendered = message.format(
+        user=member.name,
+        mention=member.mention,
+        server=member.guild.name
+    )
+    if channel:
+        embed = discord.Embed(
+            title="👋 Selamat Datang!",
+            description=rendered,
+            color=0x00ff00
+        )
+        embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
+        await channel.send(embed=embed)
+
+
+@bot.tree.command(name="set-goodbye", description="Atur goodbye message dan channel")
+@app_commands.describe(
+    channel="Channel untuk goodbye message",
+    message="Teks custom goodbye. Gunakan {user}, {mention}, {server}"
+)
+@app_commands.checks.has_permissions(administrator=True)
+async def set_goodbye(interaction: discord.Interaction, channel: discord.TextChannel, message: str):
+    guild_id = str(interaction.guild.id)
+    if guild_id not in server_config:
+        server_config[guild_id] = {}
+    server_config[guild_id]["goodbye_channel"] = str(channel.id)
+    server_config[guild_id]["goodbye_message"] = message
+    save_config()
+    await interaction.response.send_message(
+        f"✅ Goodbye message diatur ke {channel.mention}\nPesan: {message}",
+        ephemeral=True
+    )
+
+
+@bot.event
+async def on_member_remove(member):
+    guild_id = str(member.guild.id)
+    if guild_id not in server_config or "goodbye_channel" not in server_config[guild_id]:
+        return
+    channel_id = int(server_config[guild_id]["goodbye_channel"])
+    channel = member.guild.get_channel(channel_id)
+    message = server_config[guild_id].get("goodbye_message", "Selamat tinggal {mention}, semoga betah di luar {server}!")
+    rendered = message.format(
+        user=member.name,
+        mention=member.mention,
+        server=member.guild.name
+    )
+    if channel:
+        embed = discord.Embed(
+            title="👋 Sampai Jumpa!",
+            description=rendered,
+            color=0xff0000
+        )
+        embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
+        await channel.send(embed=embed)
+
+
 
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
