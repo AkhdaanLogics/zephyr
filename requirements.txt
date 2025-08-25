@@ -1,6 +1,6 @@
 discord.py
 python-dotenv
 discord.py[voice]
-yt-dlp
+spotdl
 requests
 pytz
